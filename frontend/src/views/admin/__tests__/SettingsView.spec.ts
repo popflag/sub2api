@@ -1096,6 +1096,34 @@ describe("admin SettingsView payment visible method controls", () => {
     );
   });
 
+  it.each([false, true])("loads and toggles default Codex prompt opt-out from %s", async (disabled) => {
+    getSettings.mockResolvedValueOnce({
+      ...baseSettingsResponse,
+      openai_disable_default_codex_instructions: disabled,
+    });
+    const wrapper = mountView();
+    await flushPromises();
+    await openGatewayTab(wrapper);
+    const toggle = wrapper.get("#openai-disable-default-codex-instructions");
+    expect((toggle.element as HTMLInputElement).checked).toBe(disabled);
+    await toggle.setValue(!disabled);
+    await wrapper.find("form").trigger("submit.prevent");
+    await flushPromises();
+    expect(updateSettings).toHaveBeenCalledWith(expect.objectContaining({
+      openai_disable_default_codex_instructions: !disabled,
+    }));
+  });
+
+  it("keeps default Codex prompt injection for settings without the new field", async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await wrapper.find("form").trigger("submit.prevent");
+    await flushPromises();
+    expect(updateSettings).toHaveBeenCalledWith(expect.objectContaining({
+      openai_disable_default_codex_instructions: false,
+    }));
+  });
+
   it("submits Anthropic cache TTL injection gateway setting", async () => {
     getSettings.mockResolvedValueOnce({
       ...baseSettingsResponse,
