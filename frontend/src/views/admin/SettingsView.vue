@@ -5830,6 +5830,19 @@
                 </p>
               </div>
 
+              <div class="flex items-center justify-between gap-4">
+                <label
+                  for="openai-disable-default-codex-instructions"
+                  class="text-sm font-medium text-gray-700 dark:text-gray-300"
+                >
+                  {{ t("admin.settings.gatewayForwarding.openaiDisableDefaultCodexInstructions") }}
+                </label>
+                <Toggle
+                  id="openai-disable-default-codex-instructions"
+                  v-model="form.openai_disable_default_codex_instructions"
+                />
+              </div>
+
               <!-- Codex 版本号自动同步 -->
               <div class="flex items-center justify-between">
                 <div>
@@ -9991,6 +10004,7 @@ const form = reactive<SettingsForm>({
   // 只读展示：自动同步任务写入的官方最新稳定版，不参与提交（提交载荷按字段显式构造）
   claude_code_client_version_synced: "",
   claude_code_version_auto_sync_enabled: true,
+  openai_disable_default_codex_instructions: false,
   // codex_cli_only 加固
   min_codex_version: "",
   max_codex_version: "",
@@ -11622,6 +11636,8 @@ async function saveSettings() {
       claude_code_client_version: form.claude_code_client_version?.trim() || "",
       claude_code_version_auto_sync_enabled:
         form.claude_code_version_auto_sync_enabled,
+      openai_disable_default_codex_instructions:
+        form.openai_disable_default_codex_instructions,
       min_codex_version: form.min_codex_version?.trim() || "",
       max_codex_version: form.max_codex_version?.trim() || "",
       codex_cli_only_allow_app_server_clients:

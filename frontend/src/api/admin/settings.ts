@@ -642,6 +642,7 @@ export interface SystemSettings {
   claude_code_client_version: string;
   claude_code_client_version_synced: string;
   claude_code_version_auto_sync_enabled: boolean;
+  openai_disable_default_codex_instructions: boolean;
   // codex_cli_only 加固
   min_codex_version: string;
   max_codex_version: string;
@@ -964,6 +965,7 @@ export interface UpdateSettingsRequest {
   openai_codex_version_auto_sync_enabled?: boolean;
   claude_code_client_version?: string;
   claude_code_version_auto_sync_enabled?: boolean;
+  openai_disable_default_codex_instructions?: boolean;
   // codex_cli_only 加固
   min_codex_version?: string;
   max_codex_version?: string;

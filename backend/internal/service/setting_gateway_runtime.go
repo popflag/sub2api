@@ -54,6 +54,7 @@ const backendModeDBTimeout = 5 * time.Second
 
 // cachedGatewayForwardingSettings 缓存网关转发行为设置（进程内缓存，60s TTL）
 type cachedGatewayForwardingSettings struct {
+	disableDefaultCodexInstructions  bool
 	openAITTFTMode                   string
 	fingerprintUnification           bool
 	metadataPassthrough              bool
@@ -845,6 +846,7 @@ func (s *SettingService) IsBackendModeEnabled(ctx context.Context) bool {
 }
 
 type gatewayForwardingSettingsResult struct {
+	disableDefaultCodexInstructions                                                       bool
 	openAITTFTMode                                                                        string
 	fp, mp, cch, claudeOAuthSystemPromptInjection, cacheTTL1h, rewriteMessageCacheControl bool
 	clientDatelineNormalization                                                           bool
@@ -855,6 +857,7 @@ func (s *SettingService) getGatewayForwardingSettingsCached(ctx context.Context)
 	if cached, ok := gatewayForwardingCache.Load().(*cachedGatewayForwardingSettings); ok && cached != nil {
 		if time.Now().UnixNano() < cached.expiresAt {
 			return gatewayForwardingSettingsResult{
+				disableDefaultCodexInstructions:  cached.disableDefaultCodexInstructions,
 				openAITTFTMode:                   cached.openAITTFTMode,
 				fp:                               cached.fingerprintUnification,
 				mp:                               cached.metadataPassthrough,
@@ -872,6 +875,7 @@ func (s *SettingService) getGatewayForwardingSettingsCached(ctx context.Context)
 		if cached, ok := gatewayForwardingCache.Load().(*cachedGatewayForwardingSettings); ok && cached != nil {
 			if time.Now().UnixNano() < cached.expiresAt {
 				return gatewayForwardingSettingsResult{
+					disableDefaultCodexInstructions:  cached.disableDefaultCodexInstructions,
 					openAITTFTMode:                   cached.openAITTFTMode,
 					fp:                               cached.fingerprintUnification,
 					mp:                               cached.metadataPassthrough,
@@ -889,6 +893,7 @@ func (s *SettingService) getGatewayForwardingSettingsCached(ctx context.Context)
 		defer cancel()
 		values, err := s.settingRepo.GetMultiple(dbCtx, []string{
 			SettingKeyOpenAITTFTMode,
+			SettingKeyOpenAIDisableDefaultCodexInstructions,
 			SettingKeyEnableFingerprintUnification,
 			SettingKeyEnableMetadataPassthrough,
 			SettingKeyEnableCCHSigning,
@@ -938,6 +943,7 @@ func (s *SettingService) getGatewayForwardingSettingsCached(ctx context.Context)
 		}
 		gatewayForwardingCache.Store(&cachedGatewayForwardingSettings{
 			openAITTFTMode:                   ttftMode,
+			disableDefaultCodexInstructions:  values[SettingKeyOpenAIDisableDefaultCodexInstructions] == "true",
 			fingerprintUnification:           fp,
 			metadataPassthrough:              mp,
 			cchSigning:                       cch,
@@ -951,6 +957,7 @@ func (s *SettingService) getGatewayForwardingSettingsCached(ctx context.Context)
 		})
 		return gatewayForwardingSettingsResult{
 			openAITTFTMode:                   ttftMode,
+			disableDefaultCodexInstructions:  values[SettingKeyOpenAIDisableDefaultCodexInstructions] == "true",
 			fp:                               fp,
 			mp:                               mp,
 			cch:                              cch,
@@ -966,6 +973,11 @@ func (s *SettingService) getGatewayForwardingSettingsCached(ctx context.Context)
 		return r
 	}
 	return gatewayForwardingSettingsResult{fp: true, claudeOAuthSystemPromptInjection: true, clientDatelineNormalization: true}
+}
+
+// IsOpenAIDefaultCodexInstructionsDisabled only controls the embedded fallback prompt.
+func (s *SettingService) IsOpenAIDefaultCodexInstructionsDisabled(ctx context.Context) bool {
+	return s != nil && s.settingRepo != nil && s.getGatewayForwardingSettingsCached(ctx).disableDefaultCodexInstructions
 }
 
 // GetOpenAITTFTMode 返回 Responses first_token_ms 的统计口径。
