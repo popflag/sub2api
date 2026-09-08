@@ -264,8 +264,9 @@ func (s *OpenAIGatewayService) forwardAsChatCompletions(
 			return nil, fmt.Errorf("unmarshal for codex transform: %w", err)
 		}
 		isJSONObjectFormat := strings.EqualFold(strings.TrimSpace(gjson.GetBytes(responsesBody, "text.format.type").String()), "json_object")
+		disableDefaultInstructions := s.settingService.IsOpenAIDefaultCodexInstructionsDisabled(ctx)
 		codexResult := applyCodexOAuthTransformWithOptions(reqBody, codexOAuthTransformOptions{
-			SkipDefaultInstructions:             !isResponsesShape,
+			SkipDefaultInstructions:             !isResponsesShape || disableDefaultInstructions,
 			OmitPromotedSystemMessagesFromInput: !isResponsesShape && !isJSONObjectFormat,
 		})
 		if codexResult.Error != nil {
@@ -273,7 +274,7 @@ func (s *OpenAIGatewayService) forwardAsChatCompletions(
 			return nil, codexResult.Error
 		}
 		setCodexToolNameReverse(c, codexResult.ToolNameReverse)
-		if !isResponsesShape {
+		if !isResponsesShape || disableDefaultInstructions {
 			ensureCodexOAuthInstructionsField(reqBody)
 		}
 		if codexResult.NormalizedModel != "" {

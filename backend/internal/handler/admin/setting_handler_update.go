@@ -257,6 +257,7 @@ type UpdateSettingsRequest struct {
 	OpenAICodexUserAgent                   *string `json:"openai_codex_user_agent"`
 	OpenAICodexClientVersion               *string `json:"openai_codex_client_version"`
 	OpenAICodexVersionAutoSyncEnabled      *bool   `json:"openai_codex_version_auto_sync_enabled"`
+	OpenAIDisableDefaultCodexInstructions  *bool   `json:"openai_disable_default_codex_instructions"`
 
 	// codex_cli_only 加固（global-only）
 	MinCodexVersion                      string `json:"min_codex_version"`
@@ -1758,6 +1759,12 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		}(),
 		// 同步值由自动同步任务独占写入，面板保存时原样带回，避免被清空。
 		OpenAICodexClientVersionSynced: previousSettings.OpenAICodexClientVersionSynced,
+		OpenAIDisableDefaultCodexInstructions: func() bool {
+			if req.OpenAIDisableDefaultCodexInstructions != nil {
+				return *req.OpenAIDisableDefaultCodexInstructions
+			}
+			return previousSettings.OpenAIDisableDefaultCodexInstructions
+		}(),
 		OpenAICodexVersionAutoSyncEnabled: func() bool {
 			if req.OpenAICodexVersionAutoSyncEnabled != nil {
 				return *req.OpenAICodexVersionAutoSyncEnabled
@@ -2294,6 +2301,7 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		OpenAICodexClientVersion:                               updatedSettings.OpenAICodexClientVersion,
 		OpenAICodexClientVersionSynced:                         updatedSettings.OpenAICodexClientVersionSynced,
 		OpenAICodexVersionAutoSyncEnabled:                      updatedSettings.OpenAICodexVersionAutoSyncEnabled,
+		OpenAIDisableDefaultCodexInstructions:                  updatedSettings.OpenAIDisableDefaultCodexInstructions,
 		MinCodexVersion:                                        updatedSettings.MinCodexVersion,
 		MaxCodexVersion:                                        updatedSettings.MaxCodexVersion,
 		CodexCLIOnlyBlacklist:                                  updatedSettings.CodexCLIOnlyBlacklist,
