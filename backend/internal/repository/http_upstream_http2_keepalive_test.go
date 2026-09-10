@@ -67,6 +67,22 @@ func TestBuildUpstreamTransport_LongStreamH2_EnablesPingHealthCheck(t *testing.T
 	requireHTTP2Configured(t, tr, "long_stream_h2 必须显式配置 http2 以启用 ReadIdleTimeout")
 }
 
+func TestBuildUpstreamTransport_CompressionIsolation(t *testing.T) {
+	for _, mode := range []string{
+		upstreamProtocolModeDefault,
+		upstreamProtocolModeOpenAIH1,
+		upstreamProtocolModeOpenAIH2,
+		upstreamProtocolModeOpenAIH1Fallback,
+	} {
+		t.Run(mode, func(t *testing.T) {
+			tr, err := buildUpstreamTransport(http2KeepAliveTestPoolSettings(), nil, mode)
+			require.NoError(t, err)
+			defer tr.CloseIdleConnections()
+			require.Equal(t, mode != upstreamProtocolModeDefault, tr.DisableCompression)
+		})
+	}
+}
+
 // 默认、Grok 和显式 H1 模式不应主动启用 HTTP/2 保活，避免影响其他平台的传输策略。
 func TestBuildUpstreamTransport_NonHTTP2_NotEagerlyConfigured(t *testing.T) {
 	for _, mode := range []string{upstreamProtocolModeDefault, upstreamProtocolModeGrok, upstreamProtocolModeOpenAIH1, upstreamProtocolModeOpenAIH1Fallback} {
