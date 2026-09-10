@@ -892,6 +892,7 @@ func (s *AccountUsageService) probeOpenAICodexSnapshot(ctx context.Context, acco
 		ProxyURL:              proxyURL,
 		Timeout:               15 * time.Second,
 		ResponseHeaderTimeout: 10 * time.Second,
+		DisableCompression:    true,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("build openai probe client: %w", err)

@@ -18,6 +18,19 @@ func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
 	return f(req)
 }
 
+func TestDisableCompression_TransportAndClientKey(t *testing.T) {
+	defaults := Options{}
+	disabled := Options{DisableCompression: true}
+	require.NotEqual(t, buildClientKey(defaults), buildClientKey(disabled))
+
+	for _, opts := range []Options{defaults, disabled} {
+		transport, err := buildTransport(opts)
+		require.NoError(t, err)
+		require.Equal(t, opts.DisableCompression, transport.DisableCompression)
+		transport.CloseIdleConnections()
+	}
+}
+
 func TestValidatedTransport_CacheHostValidation(t *testing.T) {
 	originalValidate := validateResolvedIP
 	defer func() { validateResolvedIP = originalValidate }()

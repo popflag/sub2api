@@ -58,6 +58,22 @@ func TestBuildUpstreamTransport_OpenAIH2_EnablesPingHealthCheck(t *testing.T) {
 	requireHTTP2Configured(t, tr, "openai_h2 必须显式配置 http2 以启用 ReadIdleTimeout")
 }
 
+func TestBuildUpstreamTransport_CompressionIsolation(t *testing.T) {
+	for _, mode := range []string{
+		upstreamProtocolModeDefault,
+		upstreamProtocolModeOpenAIH1,
+		upstreamProtocolModeOpenAIH2,
+		upstreamProtocolModeOpenAIH1Fallback,
+	} {
+		t.Run(mode, func(t *testing.T) {
+			tr, err := buildUpstreamTransport(http2KeepAliveTestPoolSettings(), nil, mode)
+			require.NoError(t, err)
+			defer tr.CloseIdleConnections()
+			require.Equal(t, mode != upstreamProtocolModeDefault, tr.DisableCompression)
+		})
+	}
+}
+
 // 非 H2 模式（default/h1）不应因本次改动被误配置：default 走 Go 自动 H2（惰性配置，
 // 构建时 Protocols/TLSNextProto 仍为空），h1 模式显式禁用 H2。避免波及 Claude/Gemini 热路径。
 func TestBuildUpstreamTransport_NonOpenAIH2_NotEagerlyConfigured(t *testing.T) {

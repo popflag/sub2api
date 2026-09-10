@@ -1334,6 +1334,8 @@ func buildUpstreamTransport(settings poolSettings, proxyURL *url.URL, protocolMo
 	switch protocolMode {
 	case upstreamProtocolModeOpenAIH2:
 		transport.ForceAttemptHTTP2 = true
+		// 禁止自动追加 Accept-Encoding: gzip，与 Codex 出站头保持一致。
+		transport.DisableCompression = true
 		// 显式配置 http2 并启用 PING 健康探测，剔除代理/NAT 静默掐断的死连接，
 		// 避免请求挂在死连接上直到 TCP 重传超时（分钟级）。
 		if _, err := enableOpenAIHTTP2KeepAlive(transport); err != nil {
@@ -1342,10 +1344,12 @@ func buildUpstreamTransport(settings poolSettings, proxyURL *url.URL, protocolMo
 	case upstreamProtocolModeOpenAIH1:
 		transport.ForceAttemptHTTP2 = false
 		transport.TLSNextProto = make(map[string]func(string, *tls.Conn) http.RoundTripper)
+		transport.DisableCompression = true
 	case upstreamProtocolModeOpenAIH1Fallback:
 		// 显式禁用 HTTP/2，确保代理不兼容场景回退到 HTTP/1.1。
 		transport.ForceAttemptHTTP2 = false
 		transport.TLSNextProto = make(map[string]func(string, *tls.Conn) http.RoundTripper)
+		transport.DisableCompression = true
 	}
 	if err := proxyutil.ConfigureTransportProxy(transport, proxyURL); err != nil {
 		return nil, err
