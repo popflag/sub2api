@@ -1,61 +1,89 @@
 # Repository Instructions
 
-## Upstream maintenance: linear patch stack
+## Branch model
 
-This private fork is maintained as a linear patch stack on top of `upstream/main`.
+This private fork uses a one-way release flow:
+
+```text
+upstream/main -> private/patches -> release/* -> main -> version tag
+```
 
 ### Invariants
 
 - Treat `upstream/main` as the only upstream source of truth.
-- Keep `main` shaped as `upstream/main` followed only by this fork's private commits.
-- Keep private changes atomic, independently testable, and free of upstream merge commits.
-- Keep `backend/cmd/server/VERSION` as the final private release commit.
-- Treat `origin/main` as the publication target, not as an input to upstream synchronization.
-- Preserve a local backup branch until the rewritten branch has been validated and accepted.
+- Treat `private/patches` as the only source of long-lived private code and policy changes.
+- Keep `private/patches` shaped as `upstream/main` followed only by atomic, independently testable private commits.
+- Keep release-only `VERSION` commits out of `private/patches`.
+- Treat `main` as a replaceable, validated release pointer built from `private/patches`, with `backend/cmd/server/VERSION` as its final commit.
+- Flow changes from `private/patches` to `main`. Do not merge `main` back into `private/patches`.
+- Make functional fixes on `private/patches`. If an emergency fix lands on `main`, immediately cherry-pick it to `private/patches` or it will be lost at the next release rebuild.
+- Treat `origin/*` as publication targets, not as inputs to upstream synchronization.
+- Preserve backup branches until the rewritten branch or release has been validated and accepted.
 
-Verify the shape with:
+Verify the patch stack with:
 
 ```bash
-git log --reverse --no-merges upstream/main..main
-test "$(git rev-list --merges upstream/main..main --count)" -eq 0
+git log --reverse --no-merges upstream/main..private/patches
+test "$(git rev-list --merges upstream/main..private/patches --count)" -eq 0
 ```
 
-### Synchronizing upstream
+## Synchronizing upstream
 
-When asked to sync, update, or merge upstream changes, use this rebase workflow instead of merging `upstream/main` into `main`:
+When asked to sync or update upstream:
 
-1. Require a clean worktree and fetch both remotes.
-2. Record the old upstream base with `git merge-base main upstream/main`.
-3. Create a uniquely named backup branch at the current `main`.
-4. Create a uniquely named `sync/*` candidate branch from `main`.
-5. Rebase the candidate onto `upstream/main` and resolve each private commit separately.
-6. If an equivalent private change has entered upstream, drop that patch and report it.
-7. Keep the private version update as the final commit; update its value only when the requested release version is known.
-8. Compare old and rebased patch stacks with `git range-diff <old-base>..<backup> upstream/main..<candidate>`.
-9. Run the repository's configured backend and frontend checks. Report unavailable tooling explicitly.
-10. Confirm there are no merge commits or unexpected tree changes, then move local `main` to the validated candidate.
-11. Retain the backup branch. Delete it only after explicit approval or a verified deployment.
+1. Require a clean worktree and fetch `upstream` and `origin`.
+2. Record the old base with `git merge-base private/patches upstream/main`.
+3. Create a uniquely named backup branch at `private/patches`.
+4. Create a uniquely named `sync/*` candidate from `private/patches`.
+5. Rebase the candidate onto `upstream/main`, resolving each private commit separately.
+6. Drop and report any private patch whose behavior has entered upstream.
+7. Compare patch stacks with `git range-diff <old-base>..<backup> upstream/main..<candidate>`.
+8. Run the repository's configured backend and frontend checks; report unavailable tooling.
+9. Confirm the candidate contains no merge commits or unexpected changes.
+10. Move local `private/patches` to the validated candidate. Keep `main` unchanged until a release is requested.
 
-A typical synchronization starts with:
+Typical setup:
 
 ```bash
 git status --short --branch
 git fetch upstream --prune
 git fetch origin --prune
-old_base=$(git merge-base main upstream/main)
-git branch backup/main-before-sync-<upstream-sha> main
-git switch -c sync/upstream-<upstream-sha> main
+old_base=$(git merge-base private/patches upstream/main)
+git branch backup/patches-before-sync-<upstream-sha> private/patches
+git switch -c sync/upstream-<upstream-sha> private/patches
 git rebase upstream/main
 ```
 
-Use `git rerere` when useful for recurring conflicts. Conflict resolution must preserve the intent of both current upstream behavior and each still-required private patch.
+Use `git rerere` when useful for recurring conflicts. Preserve both current upstream behavior and every still-required private patch.
 
-### Remote history
+## Creating a release
 
-Rebasing changes private commit IDs. Update `origin/main` only when the user explicitly requests it, and then use:
+1. Start `release/<version>` from the validated `private/patches` tip.
+2. Update `backend/cmd/server/VERSION` and commit it as `chore(private): set VERSION to <version>`.
+3. Run all configured checks and verify the release tree.
+4. Move local `main` to the validated release commit; do not merge the previous `main` into it.
+5. Create `v<version>` at that exact commit. Keep existing release tags immutable.
+6. Delete the temporary release branch after `main` and the tag are verified.
+
+Example:
 
 ```bash
-git push --force-with-lease origin main
+git switch -c release/<version> private/patches
+printf '<version>\n' > backend/cmd/server/VERSION
+git add backend/cmd/server/VERSION
+git commit -m "chore(private): set VERSION to <version>"
+git branch -f main HEAD
+git tag v<version> main
 ```
 
-Before that push, state that remote history will be rewritten and confirm the backup branch exists. Use ordinary pushes for backup branches and tags.
+## Publishing
+
+Rebases and release rebuilds rewrite branch history. Push only when explicitly requested, using leases for rewritten branches:
+
+```bash
+git push --force-with-lease origin private/patches
+git push --force-with-lease origin main
+git push origin v<version>
+```
+
+State which remote histories will change before pushing, confirm the relevant backup exists, and use ordinary pushes for backup branches and immutable tags.
